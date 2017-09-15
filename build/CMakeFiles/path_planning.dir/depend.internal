@@ -4,9 +4,14 @@
 CMakeFiles/path_planning.dir/main.cpp.o
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/Cholesky
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/Core
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/Dense
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/Eigenvalues
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/Geometry
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/Householder
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/Jacobi
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/LU
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/QR
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/SVD
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Cholesky/LDLT.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Cholesky/LLT.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Cholesky/LLT_LAPACKE.h
@@ -140,16 +145,64 @@ CMakeFiles/path_planning.dir/main.cpp.o
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Core/util/ReenableStupidWarnings.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Core/util/StaticAssert.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Core/util/XprHelper.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/./ComplexSchur.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/./HessenbergDecomposition.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/./RealQZ.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/./RealSchur.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/./Tridiagonalization.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/ComplexEigenSolver.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/ComplexSchur.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/ComplexSchur_LAPACKE.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/EigenSolver.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/GeneralizedEigenSolver.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/GeneralizedSelfAdjointEigenSolver.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/HessenbergDecomposition.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/RealQZ.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/RealSchur.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/RealSchur_LAPACKE.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/SelfAdjointEigenSolver.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/SelfAdjointEigenSolver_LAPACKE.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Eigenvalues/Tridiagonalization.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/AlignedBox.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/AngleAxis.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/EulerAngles.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/Homogeneous.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/Hyperplane.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/OrthoMethods.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/ParametrizedLine.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/Quaternion.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/Rotation2D.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/RotationBase.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/Scaling.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/Transform.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/Translation.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/Umeyama.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Geometry/arch/Geometry_SSE.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Householder/BlockHouseholder.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Householder/Householder.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Householder/HouseholderSequence.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/Jacobi/Jacobi.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/LU/Determinant.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/LU/FullPivLU.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/LU/InverseImpl.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/LU/PartialPivLU.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/LU/PartialPivLU_LAPACKE.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/LU/arch/Inverse_SSE.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/QR/ColPivHouseholderQR.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/QR/ColPivHouseholderQR_LAPACKE.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/QR/CompleteOrthogonalDecomposition.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/QR/FullPivHouseholderQR.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/QR/HouseholderQR.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/QR/HouseholderQR_LAPACKE.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/SVD/BDCSVD.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/SVD/JacobiSVD.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/SVD/JacobiSVD_LAPACKE.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/SVD/SVDBase.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/SVD/UpperBidiagonalization.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/misc/Image.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/misc/Kernel.h
+ /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/misc/RealSvd2x2.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/misc/blas.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/misc/lapacke.h
  /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/misc/lapacke_mangling.h
