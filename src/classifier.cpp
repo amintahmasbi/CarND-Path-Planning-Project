@@ -30,6 +30,11 @@ T normal_pdf(T x, T m, T s)
 void GNB::train(vector<vector<double>> data, vector<string> labels)
 {
 
+  for (int i = 0; i < data.size(); ++i)
+  {
+    data[i][0] = fmod(data[i][0],50.0);
+    data[i][1] = data[i][1] - floor(data[i][1]/4)*4;
+  }
   /*
 		Trains the classifier with N data points and labels.
 
@@ -140,6 +145,9 @@ string GNB::predict(vector<double> data_point)
 		"""
 		# TODO - complete this
    */
+  data_point[0] = fmod(data_point[0],50.0);
+  data_point[1] = data_point[1] - floor(data_point[1]/4)*4;
+
   vector<double> posteriors(possible_labels.size());
 
   for(vector<double>::size_type i = 0; i != priors.size(); i++)
@@ -153,7 +161,7 @@ string GNB::predict(vector<double> data_point)
   }
 
   int best_label = distance(posteriors.begin(), max_element(posteriors.begin(), posteriors.end()));
-  cout << best_label << endl;
+  //  cout << best_label << endl;
   return this->possible_labels[best_label];
 
 }

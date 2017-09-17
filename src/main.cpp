@@ -5,6 +5,8 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <map>
+
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "Eigen-3.3/Eigen/LU"
@@ -13,6 +15,7 @@
 #include "spline.h"
 #include "json.hpp"
 #include "classifier.h"
+#include "vehicle.h"
 
 using namespace std;
 
@@ -316,15 +319,21 @@ int main() {
 
   gnb.train(X_train, Y_train); // use:    string predicted = gnb.predict(coords); : left, right, keep
 
-
-
   // Start in lane 1;
   int lane = 1;
-
+  int lane_width = 4;
   // Have a reference velociy to targe
   double ref_vel = 0.0; // m/s
+  double speed_limit = 22.3; // m/s
+  double dt = 0.02;// timestep
 
-  h.onMessage([&lane,&ref_vel,&gnb,&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  //radius of situational awareness
+  double awareness_horizon = 20.0;
+  double lookahead_horizon = 30.0;
+
+  h.onMessage([&lane,&ref_vel,&awareness_horizon,&lookahead_horizon,&lane_width,
+               &speed_limit,&dt,&gnb,&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
+               &map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
       uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -363,52 +372,49 @@ int main() {
 
           int prev_size = previous_path_x.size();
 
-          if (prev_size > 0)
-          {
-            car_s = end_path_s;
-          }
+          vector<map<int, Vehicle>> remote_vehicles(3); // TODO: define outside?!
 
-          bool too_close = false;
-
-          //find ref_v to use
+          //Store neighboring cars in awareness horizon and classify them based on their lane
           for (int i = 0; i < sensor_fusion.size(); ++i)
           {
-            //car is in my lane
-            float d = sensor_fusion[i][6];
-            if (d < (2 + 4*lane + 2) && d > (2 + 4*lane - 2))
+            int remote_id = sensor_fusion[i][0];
+            double remote_x = sensor_fusion[i][1];
+            double remote_y = sensor_fusion[i][2];
+            double remote_vx = sensor_fusion[i][3];
+            double remote_vy = sensor_fusion[i][4];
+            double remote_s = sensor_fusion[i][5];
+            double remote_d = sensor_fusion[i][6];
+
+            if (distance(car_x, car_y, remote_x, remote_y) <= awareness_horizon )
             {
-              double vx = sensor_fusion[i][3];
-              double vy = sensor_fusion[i][4];
-              double check_speed = sqrt(vx*vx + vy*vy);
-              double check_car_s = sensor_fusion[i][5];
+              int remote_lane = floor(remote_d / lane_width);
 
-              check_car_s += (double) prev_size*.02*check_speed; //if using previous points can project s value out
-              //check s values greater than mine and s gap
+              //Predict state of remote vehicle
+              double remote_speed = sqrt(remote_vx*remote_vx+remote_vy*remote_vy);
+              double remote_next_x = remote_x + dt*remote_vx;
+              double remote_next_y = remote_y + dt*remote_vy;
+              double remote_next_theta = atan2(remote_next_y-remote_y, remote_next_x-remote_x);
+              vector<double> nextFrenet = getFrenet(remote_next_x, remote_next_y, remote_next_theta, map_waypoints_x, map_waypoints_y);
+              double s_dot = (nextFrenet[0]-remote_s)/dt;
+              double d_dot = (nextFrenet[1]-remote_d)/dt;
 
-              if ((check_car_s > car_s) && (check_car_s - car_s < 30) )
+              string predicted_state = gnb.predict({remote_s,remote_d,0,0}); // TODO: better prediction model is needed!: s_dot, d_dot
+
+              if(predicted_state.compare("keep") != 0)
               {
-                // Do some logic here, lower reference velocity so we dont crash into
-                // the car in front of us, could also flag to try change lanes.
-//                ref_vel = 13.4; // m/s
-                too_close = true;
-                if (lane > 0)
-                {
-                  lane = 0;
-                }
-
+                cout << predicted_state << endl;
               }
+              double remote_target_s = remote_s + lookahead_horizon*dt*s_dot;
+              double remote_target_d = 2+lane_width*remote_lane; // TODO: should depend on prediction
+              Vehicle vehicle(remote_lane, remote_s, remote_d, remote_speed,
+                              remote_target_s, remote_target_d, predicted_state);
+              vehicle.s_dot = s_dot;
+              vehicle.d_dot = d_dot;
+              remote_vehicles[remote_lane].insert(std::pair<int,Vehicle>(remote_id,vehicle));
+
             }
           }
 
-          if (too_close)
-          {
-            ref_vel -= 0.1;
-
-          }
-          else if (ref_vel < 22.2)
-          {
-            ref_vel += 0.1;
-          }
 
           json msgJson;
 
@@ -464,11 +470,56 @@ int main() {
           ptsy.push_back(prev_ref_y);
           ptsy.push_back(ref_y);
 
+          //update state
+          bool too_close = false;
+
+          if(!remote_vehicles[lane].empty())
+          {
+            map<int, Vehicle>::iterator it = remote_vehicles[lane].begin();
+
+            while(it != remote_vehicles[lane].end())
+            {
+
+              Vehicle veh = it->second;
+              if (veh.d < (lane_width/2 + lane_width*lane + lane_width/2) &&
+                  veh.d > (lane_width/2 + lane_width*lane - lane_width/2))
+              {
+
+                double check_car_s = veh.s;
+
+                check_car_s += (double) prev_size*dt*veh.s_dot; //if using previous points can project s value out
+//                    check s values greater than mine and s gap
+
+                    if ((check_car_s > end_path_s) && (check_car_s - end_path_s < lookahead_horizon) )
+                    {
+//                      Do some logic here, lower reference velocity so we dont crash into
+//                      the car in front of us, could also flag to try change lanes.
+//                      ref_vel = 13.4; // m/s
+                      too_close = true;
+                      if (lane > 0)
+                      {
+                        lane = 0;
+                      }
+
+                    }
+              }
+              ++it;
+            }
+          }
+          if (too_close)
+          {
+            ref_vel -= 0.1;
+
+          }
+          else if (ref_vel < speed_limit)
+          {
+            ref_vel += 0.1;
+          }
 
 
-          vector<double> next_wp0 = getXY(car_s+30, 2+(4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp1 = getXY(car_s+60, 2+(4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp2 = getXY(car_s+90, 2+(4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp0 = getXY(car_s+lookahead_horizon, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp1 = getXY(car_s+2*lookahead_horizon, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp2 = getXY(car_s+3*lookahead_horizon, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
           ptsx.push_back(next_wp0[0]);
           ptsx.push_back(next_wp1[0]);
@@ -495,7 +546,7 @@ int main() {
           s.set_points(ptsx, ptsy);
 
           //Calculate how to break up spline points so that we travel at our desired reference velocity
-          double target_x = 30.0;
+          double target_x = lookahead_horizon;
           double target_y = s(target_x);
           double target_dist = sqrt((target_x)*(target_x)+(target_y)*(target_y));
 
@@ -507,7 +558,7 @@ int main() {
           for(int i = 1; i < 50 - previous_path_x.size(); i++)
           {
 
-            double N = (target_dist/(.02*ref_vel));
+            double N = (target_dist/(dt*ref_vel));
             double x_point = x_add_on + (target_x)/N;
             double y_point = s(x_point);
 
@@ -530,54 +581,6 @@ int main() {
 
           // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
 
-//          double dist_inc = 0.44;
-//
-//          for(int i = 0; i < 50; i++)
-//          {
-//            double next_s = car_s + (i*dist_inc);
-//
-//            double next_d = 6.0;
-//
-//            vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-//            next_x_vals.push_back(next_xy[0]);
-//            next_y_vals.push_back(next_xy[1]);
-//          }
-
-          //          double pos_x;
-          //          double pos_y;
-          //          double angle;
-          //          int path_size = previous_path_x.size();
-          //
-          //          for(int i = 0; i < path_size; i++)
-          //          {
-          //            next_x_vals.push_back(previous_path_x[i]);
-          //            next_y_vals.push_back(previous_path_y[i]);
-          //          }
-          //
-          //          if(path_size == 0)
-          //          {
-          //            pos_x = car_x;
-          //            pos_y = car_y;
-          //            angle = deg2rad(car_yaw);
-          //          }
-          //          else
-          //          {
-          //            pos_x = previous_path_x[path_size-1];
-          //            pos_y = previous_path_y[path_size-1];
-          //
-          //            double pos_x2 = previous_path_x[path_size-2];
-          //            double pos_y2 = previous_path_y[path_size-2];
-          //            angle = atan2(pos_y-pos_y2,pos_x-pos_x2);
-          //          }
-          //
-          //          double dist_inc = 0.5;
-          //          for(int i = 0; i < 50-path_size; i++)
-          //          {
-          //            next_x_vals.push_back(pos_x+(dist_inc)*cos(angle+(i+1)*(pi()/100)));
-          //            next_y_vals.push_back(pos_y+(dist_inc)*sin(angle+(i+1)*(pi()/100)));
-          //            pos_x += (dist_inc)*cos(angle+(i+1)*(pi()/100));
-          //            pos_y += (dist_inc)*sin(angle+(i+1)*(pi()/100));
-          //          }
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 
