@@ -1127,6 +1127,18 @@ Eigen-3.3/Eigen/LU
 /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/LU
 Eigen-3.3/Eigen/Dense
 /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/Dense
+spline.h
+/home/hradt/git/CarND-Path-Planning-Project/src/spline.h
 json.hpp
 /home/hradt/git/CarND-Path-Planning-Project/src/json.hpp
+
+/home/hradt/git/CarND-Path-Planning-Project/src/spline.h
+cstdio
+-
+cassert
+-
+vector
+-
+algorithm
+-
 

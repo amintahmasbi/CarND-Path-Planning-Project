@@ -96,7 +96,7 @@
 		</buildCommand>
 		<buildCommand>
 			<name>org.eclipse.cdt.make.core.ScannerConfigBuilder</name>
-			<arguments/>
+			<arguments />
 		</buildCommand>
 	</buildSpec>
 	<natures>
