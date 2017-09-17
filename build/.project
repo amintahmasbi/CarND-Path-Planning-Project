@@ -96,7 +96,7 @@
 		</buildCommand>
 		<buildCommand>
 			<name>org.eclipse.cdt.make.core.ScannerConfigBuilder</name>
-			<arguments />
+			<arguments/>
 		</buildCommand>
 	</buildSpec>
 	<natures>
@@ -145,6 +145,11 @@
 			<name>[Targets]/[exe] path_planning/Source Files/main.cpp</name>
 			<type>1</type>
 			<location>/home/hradt/git/CarND-Path-Planning-Project/src/main.cpp</location>
+		</link>
+		<link>
+			<name>[Targets]/[exe] path_planning/Source Files/classifier.cpp</name>
+			<type>1</type>
+			<location>/home/hradt/git/CarND-Path-Planning-Project/src/classifier.cpp</location>
 		</link>
 		<link>
 			<name>[Targets]/[exe] path_planning/Header Files</name>

@@ -12,6 +12,7 @@
 
 #include "spline.h"
 #include "json.hpp"
+#include "classifier.h"
 
 using namespace std;
 
@@ -215,6 +216,58 @@ vector<double> JMT(vector< double> start, vector <double> end, double T)
 
 }
 
+// Load training states for NB classifier
+vector<vector<double> > Load_State(string file_name)
+{
+    ifstream in_state_(file_name.c_str(), ifstream::in);
+
+    vector< vector<double >> state_out;
+    string line;
+
+    while (getline(in_state_, line))
+    {
+
+      istringstream iss(line);
+      vector<double> x_coord;
+      string state1;
+      string state2;
+      string state3;
+      string state4;
+      getline(iss, state1, ',');
+      x_coord.push_back(stod(state1));
+
+      getline(iss, state2, ',');
+      x_coord.push_back(stod(state2));
+
+      getline(iss, state3, ',');
+      x_coord.push_back(stod(state3));
+
+      getline(iss, state4, ',');
+      x_coord.push_back(stod(state4));
+
+      state_out.push_back(x_coord);
+    }
+    return state_out;
+}
+
+// Load training labels for NB classifier
+vector<string> Load_Label(string file_name)
+{
+    ifstream in_label_(file_name.c_str(), ifstream::in);
+    vector< string > label_out;
+    string line;
+    while (getline(in_label_, line))
+    {
+      istringstream iss(line);
+      string label;
+      iss >> label;
+
+      label_out.push_back(label);
+    }
+    return label_out;
+
+}
+
 int main() {
   uWS::Hub h;
 
@@ -252,13 +305,26 @@ int main() {
     map_waypoints_dy.push_back(d_y);
   }
 
+  vector< vector<double> > X_train = Load_State("../pred_data/train_states.txt"); // {s,d,s_dot,d_dot}
+  vector< string > Y_train  = Load_Label("../pred_data/train_labels.txt");
+
+  cout << "X_train number of elements " << X_train.size() << endl;
+  cout << "X_train element size " << X_train[0].size() << endl;
+  cout << "Y_train number of elements " << Y_train.size() << endl;
+
+  GNB gnb = GNB();
+
+  gnb.train(X_train, Y_train); // use:    string predicted = gnb.predict(coords); : left, right, keep
+
+
+
   // Start in lane 1;
   int lane = 1;
 
   // Have a reference velociy to targe
   double ref_vel = 0.0; // m/s
 
-  h.onMessage([&lane,&ref_vel,&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&lane,&ref_vel,&gnb,&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
       uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message

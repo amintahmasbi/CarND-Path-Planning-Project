@@ -123,6 +123,33 @@ path_planning/fast:
 	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/build
 .PHONY : path_planning/fast
 
+classifier.o: classifier.cpp.o
+
+.PHONY : classifier.o
+
+# target to build an object file
+classifier.cpp.o:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/classifier.cpp.o
+.PHONY : classifier.cpp.o
+
+classifier.i: classifier.cpp.i
+
+.PHONY : classifier.i
+
+# target to preprocess a source file
+classifier.cpp.i:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/classifier.cpp.i
+.PHONY : classifier.cpp.i
+
+classifier.s: classifier.cpp.s
+
+.PHONY : classifier.s
+
+# target to generate assembly for a file
+classifier.cpp.s:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/classifier.cpp.s
+.PHONY : classifier.cpp.s
+
 main.o: main.cpp.o
 
 .PHONY : main.o
@@ -159,6 +186,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... path_planning"
+	@echo "... classifier.o"
+	@echo "... classifier.i"
+	@echo "... classifier.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

@@ -1048,6 +1048,36 @@ lapacke_mangling.h
 
 /home/hradt/git/CarND-Path-Planning-Project/src/Eigen-3.3/Eigen/src/plugins/MatrixCwiseUnaryOps.h
 
+/home/hradt/git/CarND-Path-Planning-Project/src/classifier.cpp
+iostream
+-
+sstream
+-
+fstream
+-
+math.h
+-
+vector
+-
+algorithm
+-
+set
+-
+classifier.h
+/home/hradt/git/CarND-Path-Planning-Project/src/classifier.h
+
+/home/hradt/git/CarND-Path-Planning-Project/src/classifier.h
+iostream
+-
+sstream
+-
+fstream
+-
+math.h
+-
+vector
+-
+
 /home/hradt/git/CarND-Path-Planning-Project/src/json.hpp
 algorithm
 -
@@ -1131,6 +1161,8 @@ spline.h
 /home/hradt/git/CarND-Path-Planning-Project/src/spline.h
 json.hpp
 /home/hradt/git/CarND-Path-Planning-Project/src/json.hpp
+classifier.h
+/home/hradt/git/CarND-Path-Planning-Project/src/classifier.h
 
 /home/hradt/git/CarND-Path-Planning-Project/src/spline.h
 cstdio
