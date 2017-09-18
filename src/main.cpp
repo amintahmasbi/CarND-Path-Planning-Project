@@ -311,9 +311,9 @@ int main() {
   vector< vector<double> > X_train = Load_State("../pred_data/train_states.txt"); // {s,d,s_dot,d_dot}
   vector< string > Y_train  = Load_Label("../pred_data/train_labels.txt");
 
-  cout << "X_train number of elements " << X_train.size() << endl;
-  cout << "X_train element size " << X_train[0].size() << endl;
-  cout << "Y_train number of elements " << Y_train.size() << endl;
+//  cout << "X_train number of elements " << X_train.size() << endl;
+//  cout << "X_train element size " << X_train[0].size() << endl;
+//  cout << "Y_train number of elements " << Y_train.size() << endl;
 
   GNB gnb = GNB();
 
@@ -327,11 +327,12 @@ int main() {
   double speed_limit = 22.3; // m/s
   double dt = 0.02;// timestep
 
+  double safety_buffer = 1.0;
   //radius of situational awareness
-  double awareness_horizon = 20.0;
+  double awareness_horizon = 30.0;
   double lookahead_horizon = 30.0;
 
-  h.onMessage([&lane,&ref_vel,&awareness_horizon,&lookahead_horizon,&lane_width,
+  h.onMessage([&safety_buffer,&lane,&ref_vel,&awareness_horizon,&lookahead_horizon,&lane_width,
                &speed_limit,&dt,&gnb,&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
                &map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
       uWS::OpCode opCode) {
@@ -372,7 +373,7 @@ int main() {
 
           int prev_size = previous_path_x.size();
 
-          vector<map<int, Vehicle>> remote_vehicles(3); // TODO: define outside?!
+          vector<map<int, Vehicle>> remote_vehicles(3); // Should renew every cycle
 
           //Store neighboring cars in awareness horizon and classify them based on their lane
           for (int i = 0; i < sensor_fusion.size(); ++i)
@@ -385,7 +386,7 @@ int main() {
             double remote_s = sensor_fusion[i][5];
             double remote_d = sensor_fusion[i][6];
 
-            if (distance(car_x, car_y, remote_x, remote_y) <= awareness_horizon )
+            if (abs(car_s - remote_s) <= awareness_horizon )
             {
               int remote_lane = floor(remote_d / lane_width);
 
@@ -395,8 +396,8 @@ int main() {
               double remote_next_y = remote_y + dt*remote_vy;
               double remote_next_theta = atan2(remote_next_y-remote_y, remote_next_x-remote_x);
               vector<double> nextFrenet = getFrenet(remote_next_x, remote_next_y, remote_next_theta, map_waypoints_x, map_waypoints_y);
-              double s_dot = (nextFrenet[0]-remote_s)/dt;
-              double d_dot = (nextFrenet[1]-remote_d)/dt;
+              double remote_s_dot = (nextFrenet[0]-remote_s)/dt;
+              double remote_d_dot = (nextFrenet[1]-remote_d)/dt;
 
               string predicted_state = gnb.predict({remote_s,remote_d,0,0}); // TODO: better prediction model is needed!: s_dot, d_dot
 
@@ -404,12 +405,12 @@ int main() {
               {
                 cout << predicted_state << endl;
               }
-              double remote_target_s = remote_s + lookahead_horizon*dt*s_dot;
+              double remote_target_s = remote_s + lookahead_horizon*dt*remote_s_dot;
               double remote_target_d = 2+lane_width*remote_lane; // TODO: should depend on prediction
               Vehicle vehicle(remote_lane, remote_s, remote_d, remote_speed,
                               remote_target_s, remote_target_d, predicted_state);
-              vehicle.s_dot = s_dot;
-              vehicle.d_dot = d_dot;
+              vehicle.s_dot = remote_s_dot;
+              vehicle.d_dot = remote_d_dot;
               remote_vehicles[remote_lane].insert(std::pair<int,Vehicle>(remote_id,vehicle));
 
             }
@@ -462,7 +463,15 @@ int main() {
             prev_ref_y = previous_path_y[prev_size-2];
 
             ref_yaw  = atan2(ref_y-prev_ref_y, ref_x-prev_ref_x);
+
           }
+
+          vector<double> prevFrenet = getFrenet(prev_ref_x,prev_ref_y,ref_yaw,map_waypoints_x,map_waypoints_y);
+          double prev_s = prevFrenet[0];
+          double prev_d = prevFrenet[1];
+
+          double car_s_dot = (car_s - prev_s)/dt;
+          double car_d_dot = (car_d - prev_d)/dt;
 
           ptsx.push_back(prev_ref_x);
           ptsx.push_back(ref_x);
@@ -472,44 +481,183 @@ int main() {
 
           //update state
           bool too_close = false;
-
-          if(!remote_vehicles[lane].empty())
+          double target_speed = speed_limit;
+          lane = floor(car_d / lane_width);
+          if(lane < 0 || lane > 2)
           {
-            map<int, Vehicle>::iterator it = remote_vehicles[lane].begin();
+            lane = 1;
+          }
+          int tmp_lane = lane;
 
-            while(it != remote_vehicles[lane].end())
+          for(map<int, Vehicle>::iterator it = remote_vehicles[lane].begin(); it != remote_vehicles[lane].end(); ++it)
+          {
+
+            Vehicle veh = it->second;
+            if ((veh.d < (lane_width/2 + lane_width*lane + lane_width/2)) &&
+                veh.d > (lane_width/2 + lane_width*lane - lane_width/2)) // lane check
             {
 
-              Vehicle veh = it->second;
-              if (veh.d < (lane_width/2 + lane_width*lane + lane_width/2) &&
-                  veh.d > (lane_width/2 + lane_width*lane - lane_width/2))
+              double check_car_s = veh.s;
+
+              check_car_s += (double) prev_size*dt*veh.s_dot; //if using previous points can project s value out
+
+              // check s values greater than mine and s gap
+              if ((veh.s >= car_s - veh.L - safety_buffer)) //&& (check_car_s >= end_path_s - veh.L - safety_buffer) &&
+                  //(veh.target_s >= (car_s + lookahead_horizon*dt*car_s_dot) - veh.L - safety_buffer))
               {
-
-                double check_car_s = veh.s;
-
-                check_car_s += (double) prev_size*dt*veh.s_dot; //if using previous points can project s value out
-//                    check s values greater than mine and s gap
-
-                    if ((check_car_s > end_path_s) && (check_car_s - end_path_s < lookahead_horizon) )
+                switch (lane) {
+                  case 0:
+                    if(remote_vehicles[1].empty())
                     {
-//                      Do some logic here, lower reference velocity so we dont crash into
-//                      the car in front of us, could also flag to try change lanes.
-//                      ref_vel = 13.4; // m/s
-                      too_close = true;
-                      if (lane > 0)
-                      {
-                        lane = 0;
-                      }
-
+                      tmp_lane = 1;
                     }
+                    else
+                    {
+                      bool free_lane = true;
+                      for(map<int, Vehicle>::iterator ll_it = remote_vehicles[1].begin(); ll_it != remote_vehicles[1].end(); ++ll_it)
+                      {
+                        Vehicle tmp_car = ll_it->second;
+                        double tmp_car_s = tmp_car.s;
+
+                        tmp_car_s += (double) prev_size*dt*tmp_car.s_dot;
+                        if ( ( (tmp_car.s - veh.L - safety_buffer <= car_s) &&
+                              (tmp_car_s >= end_path_s - veh.L - safety_buffer) ) ||
+                              ((tmp_car.s > car_s - veh.L - safety_buffer) &&
+                              (tmp_car_s - veh.L - safety_buffer < end_path_s ) ) )
+                        {
+                          free_lane = false;
+                          break;
+                        }
+                      }
+                      if(free_lane)
+                      {
+                        tmp_lane = 1;
+                      }
+                      else
+                      {
+                        too_close = true;
+                        target_speed = veh.v;
+                      }
+                    }
+                    break;
+                  case 1:
+                    if(remote_vehicles[0].empty())
+                    {
+                      tmp_lane = 0;
+                    }
+                    else if(remote_vehicles[2].empty())
+                    {
+                      tmp_lane = 2;
+                    }
+                    else
+                    {
+                      bool free_lane = true;
+                      for(map<int, Vehicle>::iterator ll_it = remote_vehicles[0].begin(); ll_it != remote_vehicles[0].end(); ++ll_it)
+                      {
+                        Vehicle tmp_car = ll_it->second;
+                        double tmp_car_s = tmp_car.s;
+
+                        tmp_car_s += (double) prev_size*dt*tmp_car.s_dot;
+
+                        if ( ( (tmp_car.s - veh.L - safety_buffer <= car_s) &&
+                              (tmp_car_s >= end_path_s - veh.L - safety_buffer) ) ||
+                              ((tmp_car.s > car_s - veh.L - safety_buffer) &&
+                              (tmp_car_s - veh.L - safety_buffer < end_path_s ) ) )
+                        {
+                          free_lane = false;
+                          break;
+                        }
+
+                      }
+                      if(free_lane)
+                      {
+                        tmp_lane = 0;
+                      }
+                      else
+                      {
+                        bool free_lane_1 = true;
+                        for(map<int, Vehicle>::iterator rl_it = remote_vehicles[2].begin(); rl_it != remote_vehicles[2].end(); ++rl_it)
+                        {
+                          Vehicle tmp_car_1 = rl_it->second;
+                          double tmp_car_s_1 = tmp_car_1.s;
+
+                          tmp_car_s_1 += (double) prev_size*dt*tmp_car_1.s_dot;
+                          if ( ( (tmp_car_1.s - veh.L - safety_buffer <= car_s) &&
+                                (tmp_car_s_1 >= end_path_s - veh.L - safety_buffer) ) ||
+                                ((tmp_car_1.s > car_s - veh.L - safety_buffer) &&
+                                (tmp_car_s_1 - veh.L - safety_buffer < end_path_s ) ) )
+                          {
+                            free_lane_1 = false;
+                            break;
+                          }
+
+                        }
+                        if(free_lane_1)
+                        {
+                          lane = 2;
+                        }
+                        else
+                        {
+                          too_close = true;
+                          target_speed = veh.v;
+
+                        }
+                      }
+                    }
+                    break;
+                  case 2:
+                    if(remote_vehicles[1].empty())
+                    {
+                      tmp_lane = 1;
+                    }
+                    else
+                    {
+
+                      bool free_lane = true;
+                      for(map<int, Vehicle>::iterator ll_it = remote_vehicles[1].begin();ll_it != remote_vehicles[1].end();++ll_it)
+                      {
+                        Vehicle tmp_car = ll_it->second;
+                        double tmp_car_s = tmp_car.s;
+
+                        tmp_car_s += (double) prev_size*dt*tmp_car.s_dot;
+                        if ( ( (tmp_car.s - veh.L - safety_buffer <= car_s) &&
+                            (tmp_car_s >= end_path_s - veh.L - safety_buffer) ) ||
+                            ((tmp_car.s > car_s - veh.L - safety_buffer) &&
+                            (tmp_car_s - veh.L - safety_buffer < end_path_s ) ) )
+                        {
+                          free_lane = false;
+                          break;
+                        }
+                      }
+                      if(free_lane)
+                      {
+                        tmp_lane = 1;
+                      }
+                      else
+                      {
+                        too_close = true;
+                        target_speed = veh.v;
+
+                      }
+                    }
+                    break;
+                  default:
+                    cout << "out of lane!" << endl;
+                    break;
+                }
+
               }
-              ++it;
             }
           }
+
+          lane = tmp_lane;
+
           if (too_close)
           {
-            ref_vel -= 0.1;
-
+            if(ref_vel > target_speed)
+            {
+              ref_vel -= 0.1;
+            }
           }
           else if (ref_vel < speed_limit)
           {
@@ -517,9 +665,9 @@ int main() {
           }
 
 
-          vector<double> next_wp0 = getXY(car_s+lookahead_horizon, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp1 = getXY(car_s+2*lookahead_horizon, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp2 = getXY(car_s+3*lookahead_horizon, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp0 = getXY(car_s+50, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp1 = getXY(car_s+100, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp2 = getXY(car_s+150, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
           ptsx.push_back(next_wp0[0]);
           ptsx.push_back(next_wp1[0]);
