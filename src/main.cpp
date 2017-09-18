@@ -169,6 +169,32 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 
         }
 
+// Check if a lane is free
+bool isFree(Vehicle self, double buffer, map<int,Vehicle> &adjacent_lane)
+{
+  const double timeheadway = 0.1;
+  bool free = true;
+  for(map<int, Vehicle>::iterator ll_it = adjacent_lane.begin(); ll_it != adjacent_lane.end(); ++ll_it)
+  {
+    Vehicle side_car = ll_it->second;
+
+    if ( (side_car.s + timeheadway*side_car.s_dot <= self.s - self.L - buffer ))// && (side_car.end_path_s >= self.end_path_s - self.L - buffer) )
+    {
+      free = false;
+      break;
+    }
+    else if((side_car.s - self.L - buffer >= self.s + timeheadway*self.s_dot ))// && (side_car.end_path_s - self.L - buffer <= self.end_path_s ) )
+    {
+      free = false;
+      break;
+    }
+
+
+  }
+
+  return free;
+}
+
 vector<double> JMT(vector< double> start, vector <double> end, double T)
 {
   /*
@@ -284,7 +310,7 @@ int main() {
   // Waypoint map to read from
   string map_file_ = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
-  double max_s = 6945.554;
+  const double max_s = 6945.554;
 
   ifstream in_map_(map_file_.c_str(), ifstream::in);
 
@@ -321,16 +347,16 @@ int main() {
 
   // Start in lane 1;
   int lane = 1;
-  int lane_width = 4;
+  const int lane_width = 4;
   // Have a reference velociy to targe
   double ref_vel = 0.0; // m/s
-  double speed_limit = 22.3; // m/s
-  double dt = 0.02;// timestep
+  const double speed_limit = 22.2; // m/s
+  const double dt = 0.02;// timestep
 
-  double safety_buffer = 1.0;
+  const double safety_buffer = 1.0;
   //radius of situational awareness
-  double awareness_horizon = 30.0;
-  double lookahead_horizon = 30.0;
+  const double awareness_horizon = 40.0;
+  const double lookahead_horizon = 50.0; // Affect the sharpness of spline
 
   h.onMessage([&safety_buffer,&lane,&ref_vel,&awareness_horizon,&lookahead_horizon,&lane_width,
                &speed_limit,&dt,&gnb,&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
@@ -374,6 +400,9 @@ int main() {
           int prev_size = previous_path_x.size();
 
           vector<map<int, Vehicle>> remote_vehicles(3); // Should renew every cycle
+          remote_vehicles.resize(3);
+
+
 
           //Store neighboring cars in awareness horizon and classify them based on their lane
           for (int i = 0; i < sensor_fusion.size(); ++i)
@@ -388,29 +417,41 @@ int main() {
 
             if (abs(car_s - remote_s) <= awareness_horizon )
             {
+
               int remote_lane = floor(remote_d / lane_width);
 
+              if(remote_lane < 0 || remote_lane > 2)
+              {
+                continue;
+              }
               //Predict state of remote vehicle
               double remote_speed = sqrt(remote_vx*remote_vx+remote_vy*remote_vy);
               double remote_next_x = remote_x + dt*remote_vx;
               double remote_next_y = remote_y + dt*remote_vy;
+
+
               double remote_next_theta = atan2(remote_next_y-remote_y, remote_next_x-remote_x);
               vector<double> nextFrenet = getFrenet(remote_next_x, remote_next_y, remote_next_theta, map_waypoints_x, map_waypoints_y);
               double remote_s_dot = (nextFrenet[0]-remote_s)/dt;
               double remote_d_dot = (nextFrenet[1]-remote_d)/dt;
 
-              string predicted_state = gnb.predict({remote_s,remote_d,0,0}); // TODO: better prediction model is needed!: s_dot, d_dot
+
+
+              vector<double> data_point = {remote_s,remote_d,0,0};
+              string predicted_state = gnb.predict(data_point); // TODO: better prediction model is needed!: s_dot, d_dot
 
               if(predicted_state.compare("keep") != 0)
               {
                 cout << predicted_state << endl;
               }
               double remote_target_s = remote_s + lookahead_horizon*dt*remote_s_dot;
-              double remote_target_d = 2+lane_width*remote_lane; // TODO: should depend on prediction
+              double remote_target_d = lane_width/2 + lane_width*remote_lane; // TODO: should depend on prediction
               Vehicle vehicle(remote_lane, remote_s, remote_d, remote_speed,
                               remote_target_s, remote_target_d, predicted_state);
               vehicle.s_dot = remote_s_dot;
               vehicle.d_dot = remote_d_dot;
+              vehicle.end_path_s = remote_s + prev_size*dt*remote_s_dot;
+
               remote_vehicles[remote_lane].insert(std::pair<int,Vehicle>(remote_id,vehicle));
 
             }
@@ -481,12 +522,18 @@ int main() {
 
           //update state
           bool too_close = false;
+
           double target_speed = speed_limit;
           lane = floor(car_d / lane_width);
           if(lane < 0 || lane > 2)
           {
             lane = 1;
           }
+
+          Vehicle ego(lane, car_s, car_d, car_speed, car_s + lookahead_horizon*dt*car_s_dot, lane_width/2+lane_width*lane, "keep");
+          ego.s_dot = car_s_dot;
+          ego.d_dot = car_d_dot;
+          ego.end_path_s = end_path_s;
           int tmp_lane = lane;
 
           for(map<int, Vehicle>::iterator it = remote_vehicles[lane].begin(); it != remote_vehicles[lane].end(); ++it)
@@ -494,151 +541,50 @@ int main() {
 
             Vehicle veh = it->second;
             if ((veh.d < (lane_width/2 + lane_width*lane + lane_width/2)) &&
-                veh.d > (lane_width/2 + lane_width*lane - lane_width/2)) // lane check
+                veh.d > (lane_width/2 + lane_width*lane - lane_width/2)) // check if in lane
             {
 
-              double check_car_s = veh.s;
-
-              check_car_s += (double) prev_size*dt*veh.s_dot; //if using previous points can project s value out
-
               // check s values greater than mine and s gap
-              if ((veh.s >= car_s - veh.L - safety_buffer)) //&& (check_car_s >= end_path_s - veh.L - safety_buffer) &&
-                  //(veh.target_s >= (car_s + lookahead_horizon*dt*car_s_dot) - veh.L - safety_buffer))
+              if ((veh.s  >= ego.s - ego.L - safety_buffer))
               {
+                //find empty adjacent lanes
                 switch (lane) {
                   case 0:
-                    if(remote_vehicles[1].empty())
+                    if( (remote_vehicles[1].empty()) || isFree(ego, safety_buffer, remote_vehicles[1]) )
                     {
                       tmp_lane = 1;
                     }
                     else
                     {
-                      bool free_lane = true;
-                      for(map<int, Vehicle>::iterator ll_it = remote_vehicles[1].begin(); ll_it != remote_vehicles[1].end(); ++ll_it)
-                      {
-                        Vehicle tmp_car = ll_it->second;
-                        double tmp_car_s = tmp_car.s;
-
-                        tmp_car_s += (double) prev_size*dt*tmp_car.s_dot;
-                        if ( ( (tmp_car.s - veh.L - safety_buffer <= car_s) &&
-                              (tmp_car_s >= end_path_s - veh.L - safety_buffer) ) ||
-                              ((tmp_car.s > car_s - veh.L - safety_buffer) &&
-                              (tmp_car_s - veh.L - safety_buffer < end_path_s ) ) )
-                        {
-                          free_lane = false;
-                          break;
-                        }
-                      }
-                      if(free_lane)
-                      {
-                        tmp_lane = 1;
-                      }
-                      else
-                      {
-                        too_close = true;
-                        target_speed = veh.v;
-                      }
+                      too_close = true;
+                      target_speed = veh.v;
                     }
                     break;
                   case 1:
-                    if(remote_vehicles[0].empty())
+                    if ( (remote_vehicles[0].empty()) || isFree(ego, safety_buffer, remote_vehicles[0]) )
                     {
                       tmp_lane = 0;
                     }
-                    else if(remote_vehicles[2].empty())
+                    else if( (remote_vehicles[2].empty()) || isFree(ego, safety_buffer, remote_vehicles[2]) )
                     {
                       tmp_lane = 2;
                     }
                     else
                     {
-                      bool free_lane = true;
-                      for(map<int, Vehicle>::iterator ll_it = remote_vehicles[0].begin(); ll_it != remote_vehicles[0].end(); ++ll_it)
-                      {
-                        Vehicle tmp_car = ll_it->second;
-                        double tmp_car_s = tmp_car.s;
-
-                        tmp_car_s += (double) prev_size*dt*tmp_car.s_dot;
-
-                        if ( ( (tmp_car.s - veh.L - safety_buffer <= car_s) &&
-                              (tmp_car_s >= end_path_s - veh.L - safety_buffer) ) ||
-                              ((tmp_car.s > car_s - veh.L - safety_buffer) &&
-                              (tmp_car_s - veh.L - safety_buffer < end_path_s ) ) )
-                        {
-                          free_lane = false;
-                          break;
-                        }
-
-                      }
-                      if(free_lane)
-                      {
-                        tmp_lane = 0;
-                      }
-                      else
-                      {
-                        bool free_lane_1 = true;
-                        for(map<int, Vehicle>::iterator rl_it = remote_vehicles[2].begin(); rl_it != remote_vehicles[2].end(); ++rl_it)
-                        {
-                          Vehicle tmp_car_1 = rl_it->second;
-                          double tmp_car_s_1 = tmp_car_1.s;
-
-                          tmp_car_s_1 += (double) prev_size*dt*tmp_car_1.s_dot;
-                          if ( ( (tmp_car_1.s - veh.L - safety_buffer <= car_s) &&
-                                (tmp_car_s_1 >= end_path_s - veh.L - safety_buffer) ) ||
-                                ((tmp_car_1.s > car_s - veh.L - safety_buffer) &&
-                                (tmp_car_s_1 - veh.L - safety_buffer < end_path_s ) ) )
-                          {
-                            free_lane_1 = false;
-                            break;
-                          }
-
-                        }
-                        if(free_lane_1)
-                        {
-                          lane = 2;
-                        }
-                        else
-                        {
-                          too_close = true;
-                          target_speed = veh.v;
-
-                        }
-                      }
+                      too_close = true;
+                      target_speed = veh.v;
                     }
                     break;
                   case 2:
-                    if(remote_vehicles[1].empty())
+                    if( (remote_vehicles[1].empty()) || isFree(ego, safety_buffer, remote_vehicles[1]) )
                     {
                       tmp_lane = 1;
                     }
                     else
                     {
+                      too_close = true;
+                      target_speed = veh.v;
 
-                      bool free_lane = true;
-                      for(map<int, Vehicle>::iterator ll_it = remote_vehicles[1].begin();ll_it != remote_vehicles[1].end();++ll_it)
-                      {
-                        Vehicle tmp_car = ll_it->second;
-                        double tmp_car_s = tmp_car.s;
-
-                        tmp_car_s += (double) prev_size*dt*tmp_car.s_dot;
-                        if ( ( (tmp_car.s - veh.L - safety_buffer <= car_s) &&
-                            (tmp_car_s >= end_path_s - veh.L - safety_buffer) ) ||
-                            ((tmp_car.s > car_s - veh.L - safety_buffer) &&
-                            (tmp_car_s - veh.L - safety_buffer < end_path_s ) ) )
-                        {
-                          free_lane = false;
-                          break;
-                        }
-                      }
-                      if(free_lane)
-                      {
-                        tmp_lane = 1;
-                      }
-                      else
-                      {
-                        too_close = true;
-                        target_speed = veh.v;
-
-                      }
                     }
                     break;
                   default:
@@ -665,9 +611,9 @@ int main() {
           }
 
 
-          vector<double> next_wp0 = getXY(car_s+50, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp1 = getXY(car_s+100, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          vector<double> next_wp2 = getXY(car_s+150, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp0 = getXY(car_s+lookahead_horizon, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp1 = getXY(car_s+2*lookahead_horizon, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp2 = getXY(car_s+3*lookahead_horizon, lane_width/2+(lane_width*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
           ptsx.push_back(next_wp0[0]);
           ptsx.push_back(next_wp1[0]);
@@ -690,6 +636,7 @@ int main() {
           // create a spline
           tk::spline s;
 
+
           // set (x,y) points to the spline
           s.set_points(ptsx, ptsy);
 
@@ -703,10 +650,10 @@ int main() {
 
           //Fill up the rest of our path planner after filling it with previous points, here we will always output 50 points
 
-          for(int i = 1; i < 50 - previous_path_x.size(); i++)
+          for(int i = 1; i < lookahead_horizon - previous_path_x.size(); i++)
           {
 
-            double N = (target_dist/(dt*ref_vel));
+            double N = (target_dist/(dt*(ref_vel+0.01)));// avoid divid by zero
             double x_point = x_add_on + (target_x)/N;
             double y_point = s(x_point);
 

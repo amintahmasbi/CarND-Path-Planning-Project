@@ -32,6 +32,8 @@ public:
 
   double s_dot;
 
+  double end_path_s;
+
   double v;
 
   double d;

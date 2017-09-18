@@ -22,7 +22,7 @@ Vehicle::Vehicle(int lane, double s, double d, double v, double target_s, double
 
 Vehicle::~Vehicle() {}
 
-//// TODO - Implement this method.
+//// TODO - Implement these method.
 //void Vehicle::update_state(map<int,vector < vector<int> > > predictions) {
 //  /*
 //    Updates the "state" of the vehicle by assigning one of the
