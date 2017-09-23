@@ -9,7 +9,7 @@ Goals of Project:
 Here I will consider the rubric points individually and describe how I addressed each point in my implementation. 
 
 ---
-###Compilation
+### Compilation
 
 Code must compile without errors with cmake and make.
 
@@ -18,7 +18,7 @@ The `CMakeLists.txt` is moved to `src` directory. To start the compation, use th
 cmake ../src
 ```
 ---
-###Valid Trajectories
+### Valid Trajectories
 
 - In every iteration, the car's target speed (`target_speed`) value will be set to speed limit (`speed_limit` is slightly less than the exact value). If another vehicle is detected in front of the car and none of the adjacent lanes are free, the target speed will become the front vehicle's speed.
 Therefore, the car would never drive faster than the speed limit. Moreover, it will be always checked that, unless obstructed by traffic (`too_close`), the car won't driving much slower than speed limit (line 612 in `main.cpp`)
@@ -38,7 +38,7 @@ Therefore, the car would never drive faster than the speed limit. Moreover, it w
 
 - Putting all of the above code together, the car can now drive at least 4.32 miles without incident.
 ---
-###Reflection
+### Reflection
 you have already read it!
 
 Note: the suggestion section has not been implemented yet.
