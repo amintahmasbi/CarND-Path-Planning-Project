@@ -172,18 +172,22 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 // Check if a lane is free
 bool isFree(Vehicle self, double buffer, map<int,Vehicle> &adjacent_lane)
 {
-  const double timeheadway = 0.1;
+  const double frontHeadway = 20.00;
+  const double rearDistance = 20.00;
+
   bool free = true;
   for(map<int, Vehicle>::iterator ll_it = adjacent_lane.begin(); ll_it != adjacent_lane.end(); ++ll_it)
   {
     Vehicle side_car = ll_it->second;
 
-    if ( (side_car.s + timeheadway*side_car.s_dot <= self.s - self.L - buffer ))// && (side_car.end_path_s >= self.end_path_s - self.L - buffer) )
+    // rear car
+    if ( (side_car.s <= self.s) && (side_car.s > self.s - self.L - buffer - rearDistance) )
     {
       free = false;
       break;
     }
-    else if((side_car.s - self.L - buffer >= self.s + timeheadway*self.s_dot ))// && (side_car.end_path_s - self.L - buffer <= self.end_path_s ) )
+    //front car
+    else if((side_car.s >= self.s ) && (side_car.s - self.L - buffer - frontHeadway < self.s ) )
     {
       free = false;
       break;
@@ -355,7 +359,7 @@ int main() {
 
   const double safety_buffer = 1.0;
   //radius of situational awareness
-  const double awareness_horizon = 40.0;
+  const double awareness_horizon = 50.0;
   const double lookahead_horizon = 50.0; // Affect the sharpness of spline
 
   h.onMessage([&safety_buffer,&lane,&ref_vel,&awareness_horizon,&lookahead_horizon,&lane_width,
